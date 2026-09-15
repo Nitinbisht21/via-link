@@ -1,0 +1,8 @@
+flask
+yt-dlp
+openai-whisper
+instaloader
+fpdf2
+ffmpeg-python
+numpy
+imageio-ffmpeg

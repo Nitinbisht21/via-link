@@ -1,6 +1,7 @@
 import whisper
 import datetime
 import threading
+import torch
 
 # Model loaded lazily
 _model = None
@@ -10,16 +11,23 @@ def get_model():
     global _model
     with _model_lock:
         if _model is None:
-            # Load whisper large model
-            print("Loading Whisper 'large' model...")
-            _model = whisper.load_model("large")
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                gpu_name = torch.cuda.get_device_name(0)
+                print(f"Loading Whisper 'medium' model on GPU ({gpu_name})...")
+                _model = whisper.load_model("medium", device="cuda")
+            else:
+                print("Loading Whisper 'medium' model on CPU...")
+                _model = whisper.load_model("medium", device="cpu")
             print("Model loaded successfully.")
     return _model
 
 def transcribe_audio(audio_np):
     model = get_model()
     # Transcribe the numpy array using FP16 to save VRAM on RTX 4050
-    result = model.transcribe(audio_np, fp16=True)
+    result = model.transcribe(audio_np, fp16=torch.cuda.is_available())
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
     
     return {
         "text": result["text"].strip(),

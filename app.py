@@ -2,15 +2,15 @@ import os
 import uuid
 import threading
 import io
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from flask import Flask, request, jsonify, render_template, send_file
 from utils.downloader import get_audio_from_url
 from utils.transcriber import transcribe_audio, generate_srt, get_model
 from utils.comments import get_top_comments
 from fpdf import FPDF
-
-# Set credentials from user
-os.environ["IG_USERNAME"] = "tempmail4682"
-os.environ["IG_PASSWORD"] = "temp$123"
 
 app = Flask(__name__)
 
@@ -21,26 +21,48 @@ results = {}
 threading.Thread(target=get_model, daemon=True).start()
 
 def process_reel(url, task_id):
+    transcript = ""
+    segments = []
+    comments = []
+    error_msgs = []
+    
+    # 1. Audio & Transcription
     try:
         results[task_id] = {"status": "processing", "message": "Fetching audio stream..."}
+        print(f"[{task_id[:8]}] Fetching audio stream...")
         audio_np = get_audio_from_url(url)
         
-        results[task_id] = {"status": "processing", "message": "Transcribing audio..."}
+        results[task_id] = {"status": "processing", "message": "Transcribing audio on GPU..."}
+        print(f"[{task_id[:8]}] Transcribing audio with Whisper...")
         transcription_data = transcribe_audio(audio_np)
-        
-        results[task_id] = {"status": "processing", "message": "Fetching comments..."}
-        comments = get_top_comments(url)
-        
-        results[task_id] = {
-            "status": "completed",
-            "transcript": transcription_data["text"],
-            "segments": transcription_data["segments"],
-            "comments": comments
-        }
+        transcript = transcription_data.get("text", "").strip()
+        segments = transcription_data.get("segments", [])
+        print(f"[{task_id[:8]}] Transcription finished ({len(transcript)} chars).")
     except Exception as e:
+        print(f"[{task_id[:8]}] Audio/Transcription error: {e}")
+        error_msgs.append(f"Transcription error: {e}")
+        
+    # 2. Comments
+    try:
+        results[task_id] = {"status": "processing", "message": "Fetching comments..."}
+        print(f"[{task_id[:8]}] Fetching comments...")
+        comments = get_top_comments(url)
+        print(f"[{task_id[:8]}] Comment fetching finished ({len(comments)} comments).")
+    except Exception as e:
+        print(f"[{task_id[:8]}] Comments error: {e}")
+        comments = [f"⚠️ Error fetching comments: {e}"]
+
+    if not transcript and not comments and error_msgs:
         results[task_id] = {
             "status": "error",
-            "message": str(e)
+            "message": " | ".join(error_msgs)
+        }
+    else:
+        results[task_id] = {
+            "status": "completed",
+            "transcript": transcript or "No speech detected in audio.",
+            "segments": segments,
+            "comments": comments
         }
 
 @app.route("/")
@@ -107,4 +129,4 @@ def download_transcript(task_id, format):
     return "Invalid format", 400
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)
+    app.run(host="0.0.0.0", port=5000, debug=True)

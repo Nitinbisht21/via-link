@@ -13,62 +13,138 @@
     <div class="absolute top-[-10%] left-[-10%] w-96 h-96 bg-purple-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
     <div class="absolute top-[20%] right-[-10%] w-96 h-96 bg-pink-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
     
-    <div class="w-full max-w-4xl z-10">
-        <header class="text-center mb-12">
-            <h1 class="text-5xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-600 mb-4">ReelScribe</h1>
-            <p class="text-gray-400 text-lg">Instant AI transcription and comment scraping for Instagram Reels.</p>
+    <div class="w-full max-w-5xl z-10">
+        <header class="text-center mb-8">
+            <h1 class="text-5xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-600 mb-3">ReelScribe</h1>
+            <p class="text-gray-400 text-base md:text-lg">Instant AI transcription, engagement analytics, and hashtag reel discovery.</p>
+            
+            <!-- Navigation Tabs -->
+            <div class="inline-flex p-1.5 mt-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md shadow-xl gap-2">
+                <button type="button" id="tabTranscriber" 
+                        class="tab-btn active px-6 py-2.5 rounded-xl font-semibold text-sm transition-all flex items-center gap-2">
+                    <span>🎙️</span> Reel Transcriber
+                </button>
+                <button type="button" id="tabHashtag" 
+                        class="tab-btn px-6 py-2.5 rounded-xl font-semibold text-sm transition-all flex items-center gap-2">
+                    <span>🏷️</span> Hashtag Explorer
+                </button>
+            </div>
         </header>
 
-        <div class="glass-panel p-8 rounded-2xl shadow-2xl mb-8 border border-white/10">
-            <form id="processForm" class="flex flex-col md:flex-row gap-4">
-                <input type="url" id="urlInput" required placeholder="Paste Instagram Reel URL here..." 
-                       class="flex-1 bg-white/5 border border-white/10 text-white px-6 py-4 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all placeholder-gray-500">
-                <button type="submit" id="submitBtn" 
-                        class="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold px-8 py-4 rounded-xl transition-all shadow-lg hover:shadow-purple-500/25 flex items-center justify-center min-w-[160px]">
-                    <span id="btnText">Generate</span>
-                    <svg id="loadingSpinner" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                </button>
-            </form>
-            <div id="statusMessage" class="mt-4 text-center text-sm text-gray-400 h-5"></div>
-        </div>
+        <!-- ==================== TAB 1: REEL TRANSCRIBER ==================== -->
+        <div id="sectionTranscriber" class="tab-content transition-all duration-300">
+            <div class="glass-panel p-8 rounded-2xl shadow-2xl mb-8 border border-white/10">
+                <form id="processForm" class="flex flex-col md:flex-row gap-4">
+                    <input type="url" id="urlInput" required placeholder="Paste Instagram Reel URL here..." 
+                           class="flex-1 bg-white/5 border border-white/10 text-white px-6 py-4 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all placeholder-gray-500">
+                    <button type="submit" id="submitBtn" 
+                            class="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold px-8 py-4 rounded-xl transition-all shadow-lg hover:shadow-purple-500/25 flex items-center justify-center min-w-[160px]">
+                        <span id="btnText">Generate</span>
+                        <svg id="loadingSpinner" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </button>
+                </form>
+                <div id="statusMessage" class="mt-4 text-center text-sm text-gray-400 h-5"></div>
+            </div>
 
-        <!-- Results Section (Hidden initially) -->
-        <div id="resultsSection" class="hidden space-y-8 animate-fade-in">
-            
-            <!-- Transcript Box -->
-            <div class="glass-panel p-8 rounded-2xl shadow-xl border border-white/10">
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-                    <h2 class="text-2xl font-bold flex items-center gap-2">
-                        <span>📝</span> Transcript
-                    </h2>
-                    <div class="flex gap-2">
-                        <span class="text-sm text-gray-400 self-center mr-2">Download as:</span>
-                        <a id="downloadTxt" href="#" class="download-btn bg-white/10 hover:bg-white/20 text-xs px-3 py-1 rounded-md transition-colors border border-white/10">.TXT</a>
-                        <a id="downloadPdf" href="#" class="download-btn bg-white/10 hover:bg-white/20 text-xs px-3 py-1 rounded-md transition-colors border border-white/10">.PDF</a>
-                        <a id="downloadSrt" href="#" class="download-btn bg-white/10 hover:bg-white/20 text-xs px-3 py-1 rounded-md transition-colors border border-white/10">.SRT</a>
+            <!-- Results Section (Hidden initially) -->
+            <div id="resultsSection" class="hidden space-y-8 animate-fade-in">
+                
+                <!-- Transcript Box -->
+                <div class="glass-panel p-8 rounded-2xl shadow-xl border border-white/10">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                        <h2 class="text-2xl font-bold flex items-center gap-2">
+                            <span>📝</span> Transcript
+                        </h2>
+                        <div class="flex gap-2">
+                            <span class="text-sm text-gray-400 self-center mr-2">Download as:</span>
+                            <a id="downloadTxt" href="#" class="download-btn bg-white/10 hover:bg-white/20 text-xs px-3 py-1 rounded-md transition-colors border border-white/10">.TXT</a>
+                            <a id="downloadPdf" href="#" class="download-btn bg-white/10 hover:bg-white/20 text-xs px-3 py-1 rounded-md transition-colors border border-white/10">.PDF</a>
+                            <a id="downloadSrt" href="#" class="download-btn bg-white/10 hover:bg-white/20 text-xs px-3 py-1 rounded-md transition-colors border border-white/10">.SRT</a>
+                        </div>
+                    </div>
+                    <div id="transcriptBox" class="bg-black/20 p-6 rounded-xl text-gray-300 leading-relaxed max-h-96 overflow-y-auto whitespace-pre-wrap font-medium">
+                        <!-- Transcript text goes here -->
                     </div>
                 </div>
-                <div id="transcriptBox" class="bg-black/20 p-6 rounded-xl text-gray-300 leading-relaxed max-h-96 overflow-y-auto whitespace-pre-wrap font-medium">
-                    <!-- Transcript text goes here -->
-                </div>
-            </div>
 
-            <!-- Comments Box -->
-            <div class="glass-panel p-8 rounded-2xl shadow-xl border border-white/10">
-                <h2 class="text-2xl font-bold flex items-center gap-2 mb-6">
-                    <span>💬</span> Top Comments
-                </h2>
-                <div id="commentsBox" class="bg-black/20 p-6 rounded-xl max-h-96 overflow-y-auto space-y-4">
-                    <!-- Comments go here -->
+                <!-- Comments Box -->
+                <div class="glass-panel p-8 rounded-2xl shadow-xl border border-white/10">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-2">
+                        <h2 class="text-2xl font-bold flex items-center gap-2">
+                            <span>💬</span> Top Comments
+                        </h2>
+                        <span id="commentStats" class="text-sm text-gray-400"></span>
+                    </div>
+                    <div id="commentsBox" class="bg-black/20 p-6 rounded-xl max-h-96 overflow-y-auto space-y-4">
+                        <!-- Comments go here -->
+                    </div>
                 </div>
-            </div>
 
+            </div>
         </div>
+
+        <!-- ==================== TAB 2: HASHTAG EXPLORER ==================== -->
+        <div id="sectionHashtag" class="tab-content hidden transition-all duration-300">
+            <div class="glass-panel p-8 rounded-2xl shadow-2xl mb-8 border border-white/10">
+                <form id="hashtagForm" class="flex flex-col md:flex-row gap-4">
+                    <div class="relative flex-1">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-6 text-gray-400 font-bold text-lg pointer-events-none">#</span>
+                        <input type="text" id="tagInput" required placeholder="Enter hashtag (e.g. coding, ai, fitness)..." 
+                               class="w-full bg-white/5 border border-white/10 text-white pl-12 pr-6 py-4 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500 transition-all placeholder-gray-500">
+                    </div>
+                    <select id="tagLimit" class="bg-gray-800 border border-white/10 text-white px-4 py-4 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm font-medium">
+                        <option value="50" selected>Top 50 Reels</option>
+                        <option value="30">Top 30 Reels</option>
+                        <option value="20">Top 20 Reels</option>
+                    </select>
+                    <button type="submit" id="hashtagSubmitBtn" 
+                            class="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-semibold px-8 py-4 rounded-xl transition-all shadow-lg hover:shadow-pink-500/25 flex items-center justify-center min-w-[160px]">
+                        <span id="hashtagBtnText">Explore</span>
+                        <svg id="hashtagLoadingSpinner" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </button>
+                </form>
+                <div id="hashtagStatusMessage" class="mt-4 text-center text-sm text-gray-400 h-5"></div>
+            </div>
+
+            <!-- Hashtag Results Section (Hidden initially) -->
+            <div id="hashtagResultsSection" class="hidden space-y-6 animate-fade-in">
+                <!-- Summary & Sort Toggle Bar -->
+                <div class="glass-panel p-5 rounded-2xl border border-white/10 flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <div id="hashtagHeaderInfo" class="text-left">
+                        <h3 class="text-xl font-bold flex items-center gap-2">
+                            <span class="text-pink-400" id="currentTagName">#tag</span>
+                            <span id="totalReelsBadge" class="text-xs bg-pink-500/20 text-pink-300 px-2.5 py-0.5 rounded-full border border-pink-500/30">0 Reels</span>
+                        </h3>
+                        <p class="text-gray-400 text-xs mt-1" id="hashtagMetaInfo">Ranked by engagement</p>
+                    </div>
+
+                    <!-- View Sorter: Top Liked vs Most Viewed -->
+                    <div class="flex items-center p-1 bg-black/30 rounded-xl border border-white/10 text-xs font-semibold">
+                        <button type="button" id="sortLikedBtn" class="sort-btn active px-4 py-2 rounded-lg transition-all flex items-center gap-1.5">
+                            <span>❤️</span> Top Liked
+                        </button>
+                        <button type="button" id="sortViewedBtn" class="sort-btn px-4 py-2 rounded-lg transition-all flex items-center gap-1.5 text-gray-400 hover:text-white">
+                            <span>👁️</span> Most Viewed
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Reels Grid -->
+                <div id="reelsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Dynamic Reel Cards Go Here -->
+                </div>
+            </div>
+        </div>
+
     </div>
     
     <script src="/static/main.js"></script>
+
 </body>
 </html>

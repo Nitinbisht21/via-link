@@ -19,10 +19,17 @@
   - Shows creator **verified badges** (`✓`) and profile avatars.
 - 🔗 **Link Extraction:**
   - Detects hyperlinks/URLs inside comments and highlights them with one-click pills and auto-linkified text.
+- 🏷️ **Hashtag Explorer (Top 50 Reels):**
+  - Search any Instagram hashtag (e.g., `#coding`, `#ai`, `#fitness`) to discover top viral reels.
+  - Sort by **Top Liked** or **Most Viewed** with live like counts, view counts, and video duration.
+  - View full post descriptions / captions.
+  - Click **Direct Video (MP4)** to stream or download the raw video directly, or open on Instagram.
+  - One-click **"Transcribe & Scrape"** shortcut to load any discovered reel directly into the Whisper transcriber.
 - 📥 **Export Options:**
   - Download transcripts as plain text (`.TXT`), timestamped subtitles (`.SRT`), or formatted documents (`.PDF`).
 - 🎨 **Modern Dark UI:**
   - Responsive glassmorphism interface built with Tailwind CSS, custom animations, and non-blocking polling architecture.
+
 
 ---
 
@@ -178,7 +185,9 @@ via-link/
     ├── __init__.py
     ├── downloader.py        # Audio stream extraction via yt-dlp & FFmpeg
     ├── transcriber.py       # Whisper GPU model loading, inference & SRT generator
-    └── comments.py          # Instagram GraphQL comment parser (likes, links, replies)
+    ├── comments.py          # Instagram GraphQL comment parser (likes, links, replies)
+    └── hashtag.py           # Hashtag top/viewed reels scraper & direct link extractor
+
 ```
 
 ---

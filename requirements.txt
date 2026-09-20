@@ -6,3 +6,5 @@ fpdf2
 ffmpeg-python
 numpy
 imageio-ffmpeg
+python-dotenv
+

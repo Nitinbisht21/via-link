@@ -10,7 +10,9 @@ from flask import Flask, request, jsonify, render_template, send_file
 from utils.downloader import get_audio_from_url
 from utils.transcriber import transcribe_audio, generate_srt, get_model
 from utils.comments import get_top_comments
+from utils.hashtag import get_top_reels_by_hashtag
 from fpdf import FPDF
+
 
 app = Flask(__name__)
 
@@ -65,6 +67,17 @@ def process_reel(url, task_id):
             "comments": comments
         }
 
+def process_hashtag(tag, task_id, limit=50):
+    try:
+        results[task_id] = {"status": "processing", "message": f"Exploring Instagram #{tag}..."}
+        print(f"[{task_id[:8]}] Scraping top reels for hashtag #{tag}...")
+        data = get_top_reels_by_hashtag(tag, limit=limit)
+        results[task_id] = data
+        print(f"[{task_id[:8]}] Hashtag scraping finished: {data.get('status')}")
+    except Exception as e:
+        print(f"[{task_id[:8]}] Hashtag error: {e}")
+        results[task_id] = {"status": "error", "message": str(e)}
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -86,6 +99,26 @@ def process():
     thread.start()
     
     return jsonify({"task_id": task_id})
+
+@app.route("/hashtag", methods=["POST"])
+def hashtag():
+    data = request.get_json() or {}
+    tag = data.get("tag", "").strip()
+    if not tag:
+        return jsonify({"error": "Hashtag is required"}), 400
+        
+    limit = int(data.get("limit", 50))
+    task_id = str(uuid.uuid4())
+    results[task_id] = {"status": "queued", "message": f"Queued exploration for #{tag}..."}
+    
+    thread = threading.Thread(
+        target=process_hashtag,
+        args=(tag, task_id, limit)
+    )
+    thread.start()
+    
+    return jsonify({"task_id": task_id})
+
 
 @app.route("/result/<task_id>")
 def get_result(task_id):

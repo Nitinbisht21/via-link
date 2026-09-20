@@ -61,18 +61,13 @@ def get_instaloader_instance():
             if user_id:
                 cookie_dict["ds_user_id"] = user_id
             L.context.update_cookies(cookie_dict)
-            logged_in_user = L.test_login()
-            if logged_in_user:
-                L.context.username = logged_in_user
-                try:
-                    L.save_session_to_file()
-                except Exception:
-                    pass
-                print(f"Loaded Instagram session via IG_SESSIONID for '{logged_in_user}'.")
-                _instaloader_instance = L
-                return _instaloader_instance
+            L.context.username = username or (user_id if user_id else "tempmail4682")
+            print(f"Configured Instagram session via IG_SESSIONID for '{L.context.username}'.")
+            _instaloader_instance = L
+            return _instaloader_instance
         except Exception as e:
             print(f"Could not apply IG_SESSIONID: {e}")
+
 
     # 2. Try loading an existing session file
     session_loaded = False

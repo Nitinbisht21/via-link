@@ -33,9 +33,12 @@ def parse_comment_node(node):
         "profile_pic_url": profile_pic_url
     }
 
+_current_session_id = None
+
 def get_instaloader_instance():
-    global _instaloader_instance
-    if _instaloader_instance is not None:
+    global _instaloader_instance, _current_session_id
+    session_id = os.getenv("IG_SESSIONID")
+    if _instaloader_instance is not None and _current_session_id == session_id:
         return _instaloader_instance
         
     L = instaloader.Instaloader(
@@ -51,7 +54,7 @@ def get_instaloader_instance():
     
     username = os.getenv("IG_USERNAME")
     password = os.getenv("IG_PASSWORD")
-    session_id = os.getenv("IG_SESSIONID")
+    _current_session_id = session_id
     
     # 1. Direct sessionid from .env
     if session_id:
@@ -67,7 +70,6 @@ def get_instaloader_instance():
             return _instaloader_instance
         except Exception as e:
             print(f"Could not apply IG_SESSIONID: {e}")
-
 
     # 2. Try loading an existing session file
     session_loaded = False
@@ -91,6 +93,42 @@ def get_instaloader_instance():
                 
     _instaloader_instance = L
     return _instaloader_instance
+
+def get_post_details(reel_url):
+    L = get_instaloader_instance()
+    try:
+        if '/reel/' in reel_url:
+            shortcode = reel_url.split('/reel/')[1].split('/')[0].split('?')[0]
+        elif '/reels/' in reel_url:
+            shortcode = reel_url.split('/reels/')[1].split('/')[0].split('?')[0]
+        elif '/p/' in reel_url:
+            shortcode = reel_url.split('/p/')[1].split('/')[0].split('?')[0]
+        else:
+            return None
+            
+        post = instaloader.Post.from_shortcode(L.context, shortcode)
+        taken_at_dt = post.date_utc
+        taken_at_ts = int(taken_at_dt.timestamp()) if taken_at_dt else None
+        
+        from utils.hashtag import format_time_ago
+        time_ago = format_time_ago(taken_at_ts) if taken_at_ts else "Unknown"
+        post_date = taken_at_dt.strftime("%b %d, %Y %I:%M %p UTC") if taken_at_dt else None
+
+        return {
+            "shortcode": shortcode,
+            "owner": post.owner_username or "unknown",
+            "likes": int(post.likes or 0),
+            "comments_count": int(post.comments or 0),
+            "caption": (post.caption or "").strip(),
+            "taken_at": taken_at_ts,
+            "post_date": post_date,
+            "time_ago": time_ago,
+            "url": f"https://www.instagram.com/reel/{shortcode}/"
+        }
+    except Exception as e:
+        print(f"Could not extract post details: {e}")
+        return None
+
 
 def get_top_comments(reel_url, max_comments=30):
     L = get_instaloader_instance()

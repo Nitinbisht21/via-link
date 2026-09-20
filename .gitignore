@@ -1,0 +1,53 @@
+# Environment variables & secrets
+.env
+.env.*
+*.env
+
+# Python Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Downloaded files & temporary media
+downloads/
+*.mp4
+*.mp3
+*.wav
+*.m4a
+
+# AI & Whisper models / caches
+*.pt
+*.pth
+.cache/
+
+# Instaloader session files
+*.session
+session-*
+
+# IDE & Editor configs
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Operating System files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# Logs
+*.log

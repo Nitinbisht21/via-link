@@ -1,0 +1,186 @@
+/* ReelScribe Architecture Dashboard Styles */
+
+:root {
+    --purple-glow: rgba(168, 85, 247, 0.4);
+    --pink-glow: rgba(236, 72, 153, 0.4);
+    --cyan-glow: rgba(6, 182, 212, 0.4);
+    --emerald-glow: rgba(16, 185, 129, 0.4);
+}
+
+body {
+    background-color: #0b0d13;
+    font-family: 'Inter', sans-serif;
+    color: #e5e7eb;
+}
+
+code, pre {
+    font-family: 'Fira Code', monospace;
+}
+
+/* Glassmorphic Panels */
+.glass-card {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+}
+
+/* Architecture Node Card */
+.arch-node {
+    position: relative;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 18px;
+    padding: 18px 20px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.arch-node:hover {
+    transform: translateY(-4px) scale(1.01);
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(236, 72, 153, 0.4);
+    box-shadow: 0 12px 30px -8px rgba(236, 72, 153, 0.3);
+}
+
+.arch-node.node-active {
+    border-color: #ec4899;
+    box-shadow: 0 0 25px rgba(236, 72, 153, 0.5), inset 0 0 15px rgba(236, 72, 153, 0.2);
+    background: rgba(236, 72, 153, 0.08);
+}
+
+.arch-node.node-pulsing {
+    animation: nodePulse 1.5s infinite alternate ease-in-out;
+}
+
+@keyframes nodePulse {
+    0% {
+        box-shadow: 0 0 10px rgba(6, 182, 212, 0.3);
+        border-color: rgba(6, 182, 212, 0.5);
+    }
+    100% {
+        box-shadow: 0 0 30px rgba(6, 182, 212, 0.8), inset 0 0 15px rgba(6, 182, 212, 0.3);
+        border-color: #06b6d4;
+    }
+}
+
+.arch-node.node-dimmed {
+    opacity: 0.35;
+    filter: grayscale(60%);
+    transform: scale(0.98);
+}
+
+/* Tier Labels & Badges */
+.tier-label {
+    font-size: 10px;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 6px;
+    letter-spacing: 0.05em;
+}
+
+.node-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.badge-tech {
+    font-family: 'Fira Code', monospace;
+    font-size: 10px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #cbd5e1;
+    padding: 2px 8px;
+    border-radius: 6px;
+}
+
+/* Mode Buttons */
+.mode-btn.active {
+    background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(236, 72, 153, 0.35);
+}
+
+/* ==================== CONTINUOUS SVG FLOW LINES ==================== */
+.connector-bg {
+    stroke: rgba(255, 255, 255, 0.06);
+    stroke-width: 2.5;
+    fill: none;
+    stroke-linecap: round;
+}
+
+/* Animated continuous flow line */
+.connector-flow {
+    fill: none;
+    stroke-width: 3.5;
+    stroke-linecap: round;
+    stroke-dasharray: 10 14;
+    animation: flowLine 2.5s linear infinite;
+    filter: drop-shadow(0 0 6px currentColor);
+}
+
+@keyframes flowLine {
+    from {
+        stroke-dashoffset: 144;
+    }
+    to {
+        stroke-dashoffset: 0;
+    }
+}
+
+.flow-purple {
+    stroke: #c084fc;
+    color: #c084fc;
+}
+
+.flow-pink {
+    stroke: #f472b6;
+    color: #f472b6;
+}
+
+.flow-cyan {
+    stroke: #22d3ee;
+    color: #22d3ee;
+}
+
+.flow-emerald {
+    stroke: #34d399;
+    color: #34d399;
+}
+
+.connector-flow.path-dimmed {
+    opacity: 0.15 !important;
+    animation-play-state: paused;
+}
+
+.connector-flow.path-highlighted {
+    stroke-width: 5;
+    filter: drop-shadow(0 0 12px currentColor);
+    animation-duration: 1.2s;
+}
+
+/* ==================== CUSTOM SCROLLBARS ==================== */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.25);
+}

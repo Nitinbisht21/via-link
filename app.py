@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from flask import Flask, request, jsonify, render_template, send_file
+from flask import Flask, request, jsonify, render_template, send_file, send_from_directory
 from utils.downloader import get_audio_from_url
 from utils.transcriber import transcribe_audio, generate_srt, get_model
 from utils.comments import get_top_comments, get_post_details
@@ -84,6 +84,16 @@ def process_hashtag(tag, task_id, limit=50):
 @app.route("/")
 def index():
     return render_template("index.html")
+
+@app.route("/architecture")
+def architecture_dashboard():
+    arch_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "architecture")
+    return send_file(os.path.join(arch_dir, "index.html"))
+
+@app.route("/architecture/<path:filename>")
+def architecture_assets(filename):
+    arch_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "architecture")
+    return send_from_directory(arch_dir, filename)
 
 @app.route("/process", methods=["POST"])
 def process():

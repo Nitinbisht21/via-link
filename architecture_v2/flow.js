@@ -328,7 +328,7 @@ def process():
             desc: "OpenAI Whisper ASR neural engine. A dedicated background daemon preloads the model into memory at application boot. Automatically activates FP16 CUDA GPU tensor acceleration when an NVIDIA GPU is detected, with transparent multi-threaded CPU fallback.",
             highlights: [
                 "Daemonized preloading: model initialized once at boot, eliminating 5-10 second cold start latency.",
-                "Hardware auto-negotiation: FP16 on NVIDIA CUDA GPUs (e.g. RTX 4050), Float32 on CPUs.",
+                "Hardware auto-negotiation: FP16 on NVIDIA CUDA GPUs, Float32 on CPUs.",
                 "Segment-level alignment: extracts precise start/end time offsets for synchronized subtitle generation."
             ],
             methods: [
@@ -343,7 +343,7 @@ def process():
       { "id": 0, "start": 0.0, "end": 4.12, "text": " Imagine all your friends give you digital presents." }
     ],
     "language": "en",
-    "device_used": "cuda:0 (NVIDIA GeForce RTX 4050)"
+    "device_used": "cuda:0 (NVIDIA CUDA GPU)"
   }
 }`,
             code: `def transcribe_audio(audio_np):

@@ -8,7 +8,7 @@
 
 - ⚡ **GPU-Accelerated Speech-to-Text:**
   - Powered by OpenAI's Whisper (`medium` model with FP16 precision).
-  - Optimized for consumer GPUs (like NVIDIA GeForce RTX 4050 Laptop GPU / 6GB VRAM) with automatic VRAM caching management to prevent Out-Of-Memory (OOM) errors.
+  - Optimized for modern NVIDIA GPUs with automatic VRAM caching management to prevent Out-Of-Memory (OOM) errors.
   - Automatic fallback to CPU if CUDA is unavailable.
 - 💬 **Live Instagram Comment Scraping:**
   - Scrapes top-ranked comments directly from Instagram via authenticated Web GraphQL queries.
@@ -107,7 +107,7 @@ pip install -r requirements.txt
 ```
 
 #### Install PyTorch with CUDA Support (for NVIDIA GPU):
-If you have an NVIDIA GPU (e.g. RTX 3050, 4050, 4060, etc.):
+If you have a compatible NVIDIA GPU (CUDA 12.x):
 ```powershell
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
 ```
@@ -168,7 +168,9 @@ Instagram requires authentication to scrape comments and bypass anti-bot challen
 
 ```text
 via-link/
-├── app.py                   # Main Flask application and API routes
+├── app.py                   # Main Flask application, background workers & API routes
+├── architecture/            # Standalone Interactive Architecture Flow v1 visualizer
+├── architecture_v2/         # Next-Gen Cyber Mesh Architecture v2 visualizer
 ├── requirements.txt         # Python package dependencies
 ├── .env.example             # Example environment template
 ├── .gitignore               # Ignored files (venv, .env, sessions, etc.)
@@ -179,7 +181,7 @@ via-link/
 │   └── style.css            # Glassmorphism styling, animations, and comment cards
 │
 ├── templates/
-│   └── index.html           # Main frontend web page
+│   └── index.html           # Main frontend web page (Reels, Hashtags & Architecture)
 │
 └── utils/
     ├── __init__.py
@@ -187,7 +189,6 @@ via-link/
     ├── transcriber.py       # Whisper GPU model loading, inference & SRT generator
     ├── comments.py          # Instagram GraphQL comment parser (likes, links, replies)
     └── hashtag.py           # Hashtag top/viewed reels scraper & direct link extractor
-
 ```
 
 ---

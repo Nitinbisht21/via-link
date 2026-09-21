@@ -196,11 +196,9 @@ Instagram requires authentication to scrape comments and bypass anti-bot challen
 ```text
 via-link/
 ├── app.py                   # Main Flask application, background workers & API routes
-├── architecture/            # Standalone Interactive Architecture Flow v1 visualizer
-├── architecture_v2/         # Next-Gen Cyber Mesh Architecture v2 visualizer
 ├── requirements.txt         # Python package dependencies
 ├── .env.example             # Example environment template
-├── .gitignore               # Ignored files (venv, .env, sessions, etc.)
+├── .gitignore               # Ignored files (venv, .env, architecture/, etc.)
 ├── README.md                # Documentation and setup instructions
 │
 ├── static/

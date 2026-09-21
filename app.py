@@ -86,6 +86,7 @@ def index():
     return render_template("index.html")
 
 @app.route("/architecture")
+@app.route("/architecture/")
 def architecture_dashboard():
     arch_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "architecture")
     return send_file(os.path.join(arch_dir, "index.html"))
@@ -93,6 +94,17 @@ def architecture_dashboard():
 @app.route("/architecture/<path:filename>")
 def architecture_assets(filename):
     arch_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "architecture")
+    return send_from_directory(arch_dir, filename)
+
+@app.route("/architecture-v2")
+@app.route("/architecture-v2/")
+def architecture_v2_dashboard():
+    arch_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "architecture_v2")
+    return send_file(os.path.join(arch_dir, "index.html"))
+
+@app.route("/architecture-v2/<path:filename>")
+def architecture_v2_assets(filename):
+    arch_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "architecture_v2")
     return send_from_directory(arch_dir, filename)
 
 @app.route("/process", methods=["POST"])

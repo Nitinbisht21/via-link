@@ -33,36 +33,87 @@
 
 ---
 
-## 🛠️ Architecture & How It Works
+## 🛠️ System Architecture & Workflow Pipeline
 
-```
-┌─────────────────┐       POST /process (Reel URL)        ┌─────────────────┐
-│                 │ ────────────────────────────────────> │                 │
-│  Web Browser    │                                       │   Flask Server  │
-│  (Tailwind UI)  │ <──────────────────────────────────── │    (app.py)     │
-│                 │       Returns task_id (Async)         └────────┬────────┘
-└────────┬────────┘                                                │
-         │ Polling GET /result/<task_id>                           │ Spawns worker thread
-         ▼                                                         ▼
-┌─────────────────┐                                       ┌─────────────────┐
-│ Render Results: │                                       │ Background Task │
-│ • Transcript    │                                       └────────┬────────┘
-│ • Likes & Badges│                                                │
-│ • SRT/PDF/TXT   │                                 ┌──────────────┴──────────────┐
-└─────────────────┘                                 ▼                             ▼
-                                           ┌─────────────────┐           ┌─────────────────┐
-                                           │  Audio Pipeline │           │ Comment Pipeline│
-                                           │ (yt-dlp + ffmpeg│           │ (Instaloader +  │
-                                           │  + GPU Whisper) │           │ Web GraphQL)    │
-                                           └─────────────────┘           └─────────────────┘
+ReelScribe operates on a fully decoupled, non-blocking asynchronous architecture. Long-running computational tasks (GPU neural inference, in-memory audio extraction, multi-page web scraping) run in dedicated background worker threads, maintaining sub-15ms HTTP gateway responsiveness and continuous real-time UI polling updates.
+
+```mermaid
+flowchart TD
+    subgraph Client["1. Client Layer (Browser)"]
+        UI["Dual-Tab Reactive UI (Reel Transcriber & Hashtag Explorer)"]
+        Poll["State Polling Controller (2000ms Heartbeat)"]
+        Exporter["Document Exporter (.TXT, .SRT, .PDF)"]
+    end
+
+    subgraph Gateway["2. Gateway & Task Orchestrator (app.py)"]
+        Router["Flask API Gateway (/process, /hashtag, /download)"]
+        Dispatcher["Async Worker Dispatcher (UUIDv4 Tasks)"]
+        Store[("Thread-Safe In-Memory State Store (results)")]
+    end
+
+    subgraph Pipeline1["3. Audio Stream & AI Speech Engine"]
+        YTDL["yt-dlp Direct Stream URL Resolver"]
+        FFmpeg["imageio-ffmpeg Subprocess Stdout Pipe"]
+        AudioBuffer["PCM Float32 16kHz RAM Tensor"]
+        WhisperDaemon["Daemonized Whisper Neural Preloader"]
+        WhisperInfer["CUDA FP16 Tensor Inference / CPU Fallback"]
+    end
+
+    subgraph Pipeline2["4. Instagram GraphQL & Metadata Engine"]
+        SessionMgr["Instaloader Session Manager (.env Hot-Reloading)"]
+        PostDetails["Post Metadata & Taken-At Resolver"]
+        CommentScraper["Dual-Path Comment Scraper (Embedded Edges + GraphQL Hash)"]
+    end
+
+    subgraph Pipeline3["5. Viral Hashtag Discovery & Pagination"]
+        TagCleaner["URL & Hashtag Normalizer"]
+        SectionParser["Explore Layout Parser (Clips, Grid, Fill)"]
+        ReelValidator["is_authentic_reel Strict Video Validator"]
+        CursorLoop["Multi-Page next_max_id Cursor Pagination"]
+        Ranker["Engagement Ranker (Top Liked & Viewed 50)"]
+    end
+
+    subgraph Visualizers["6. Interactive Architecture Dashboards"]
+        ArchV1["Architecture v1: 3-Tier Canvas & SVG Pulse Lines (/architecture)"]
+        ArchV2["Architecture v2: Cyber Mesh HUD & Live Packet Telemetry (/architecture-v2)"]
+    end
+
+    %% Flow connections
+    UI -->|POST /process {url}| Router
+    UI -->|POST /hashtag {tag, limit}| Router
+    Router --> Dispatcher
+    Dispatcher --> Store
+    Dispatcher -->|Worker Thread 1| YTDL
+    Dispatcher -->|Worker Thread 1| SessionMgr
+    Dispatcher -->|Worker Thread 2| TagCleaner
+
+    YTDL --> FFmpeg --> AudioBuffer --> WhisperInfer
+    WhisperDaemon -.->|Preloaded Weights| WhisperInfer
+    SessionMgr --> PostDetails --> CommentScraper
+
+    TagCleaner --> SectionParser --> CursorLoop --> ReelValidator --> Ranker
+
+    WhisperInfer -->|Transcript & Timestamps| Store
+    CommentScraper -->|Comments & Likes| Store
+    Ranker -->|Top 50 Reels Payload| Store
+
+    Store -.->|HTTP GET 2000ms Poll| Poll
+    Poll --> UI
+    UI -->|Trigger Download| Exporter
+    Exporter -.-> Router
 ```
 
-1. **Submission:** User pastes an Instagram Reel URL on the web interface.
-2. **Worker Thread:** A background worker is spawned with a unique `task_id`.
-3. **Audio Extraction:** `yt-dlp` extracts the direct audio stream, resampled to 16kHz mono via FFmpeg in memory.
-4. **Whisper Transcription:** Transcribes speech into text and segmented timestamp chunks on the GPU.
-5. **Comment Scraping:** Queries Instagram's web GraphQL API using authenticated session cookies to extract top comments, like counts, and links.
-6. **Async UI Updates:** The frontend polls `/result/<task_id>` every 2 seconds, displaying progress spinners and rendering cards immediately upon completion.
+### ⚙️ Core Operational Subsystems
+
+| Subsystem | Primary Modules | Key Technologies & Protocols | Architectural Role |
+| :--- | :--- | :--- | :--- |
+| **Client Interaction** | `templates/index.html`<br>`static/main.js` | HTML5, Vanilla JS, CSS Glassmorphism | Dual-tab reactive UI, non-blocking 2s polling heartbeat, `<meta name="referrer" content="no-referrer">` CDN hotlink protection. |
+| **Gateway & Dispatcher** | `app.py` | Flask 3.0, `threading`, `uuid`, `io.BytesIO` | Validates payloads, allocates UUIDv4 task tokens, dispatches background threads, streams documents directly from RAM. |
+| **In-Memory Audio Pipe** | `utils/downloader.py` | `yt-dlp`, `imageio-ffmpeg`, `numpy` | Streams signed media URLs, pipes raw audio through FFmpeg stdout directly into 16kHz Float32 PCM RAM arrays without disk I/O. |
+| **Neural Speech-to-Text** | `utils/transcriber.py` | OpenAI Whisper, PyTorch (CUDA / CPU) | Daemonized background preloader eliminates cold starts; executes FP16 neural inference on GPU tensor cores with CPU fallback. |
+| **Instagram GraphQL Engine** | `utils/comments.py` | `instaloader`, Web GraphQL Hash `97b41c...` | Hot-reloading session authentication, post creation timestamp extraction, edge traversal, verified badge & URL detection. |
+| **Viral Hashtag Explorer** | `utils/hashtag.py` | Instagram Web Info API, regex | Multi-page `next_max_id` pagination loop, `is_authentic_reel` video validation (excludes static photos/carousels), engagement ranker. |
+| **Architecture Dashboards** | `architecture/`<br>`architecture_v2/` | Dynamic SVG, CSS keyframe glow, Web Telemetry | Standalone & embedded interactive visualizers featuring continuous packet flow animations, live telemetry, and substructure code inspectors. |
 
 ---
 
@@ -196,8 +247,8 @@ via-link/
 ## ❓ Troubleshooting
 
 ### 1. "CUDA out of memory" error
-- **Cause:** Whisper `large` model requires ~10GB of VRAM and will exceed 6GB GPUs.
-- **Fix:** ReelScribe uses the `medium` model configured with FP16 precision, fitting comfortably in ~3.5GB–4GB VRAM. If you have a GPU with ≤4GB VRAM, change `"medium"` to `"small"` or `"base"` in `utils/transcriber.py`.
+- **Cause:** Large Whisper model variants require significant VRAM and may exceed available GPU memory on systems with limited video RAM.
+- **Fix:** ReelScribe defaults to the `medium` model configured with FP16 precision, balancing high transcription accuracy with efficient VRAM consumption (~3.5GB–4GB). If running on a GPU with limited VRAM, change `"medium"` to `"small"` or `"base"` in `utils/transcriber.py`. If no compatible CUDA device is detected, the application automatically runs on CPU.
 
 ### 2. "Login required" or 0 comments fetched
 - **Cause:** Instagram flagged password-based login or your `sessionid` expired.

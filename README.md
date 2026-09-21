@@ -33,75 +33,9 @@
 
 ---
 
-## 🛠️ System Architecture & Workflow Pipeline
+## 🛠️ System Architecture & Workflow
 
-ReelScribe operates on a fully decoupled, non-blocking asynchronous architecture. Long-running computational tasks (GPU neural inference, in-memory audio extraction, multi-page web scraping) run in dedicated background worker threads, maintaining sub-15ms HTTP gateway responsiveness and continuous real-time UI polling updates.
-
-```mermaid
-flowchart TD
-    subgraph Client["1. Client Layer (Browser)"]
-        UI["Dual-Tab Reactive UI (Reel Transcriber & Hashtag Explorer)"]
-        Poll["State Polling Controller (2000ms Heartbeat)"]
-        Exporter["Document Exporter (.TXT, .SRT, .PDF)"]
-    end
-
-    subgraph Gateway["2. Gateway & Task Orchestrator (app.py)"]
-        Router["Flask API Gateway (/process, /hashtag, /download)"]
-        Dispatcher["Async Worker Dispatcher (UUIDv4 Tasks)"]
-        Store[("Thread-Safe In-Memory State Store (results)")]
-    end
-
-    subgraph Pipeline1["3. Audio Stream & AI Speech Engine"]
-        YTDL["yt-dlp Direct Stream URL Resolver"]
-        FFmpeg["imageio-ffmpeg Subprocess Stdout Pipe"]
-        AudioBuffer["PCM Float32 16kHz RAM Tensor"]
-        WhisperDaemon["Daemonized Whisper Neural Preloader"]
-        WhisperInfer["CUDA FP16 Tensor Inference / CPU Fallback"]
-    end
-
-    subgraph Pipeline2["4. Instagram GraphQL & Metadata Engine"]
-        SessionMgr["Instaloader Session Manager (.env Hot-Reloading)"]
-        PostDetails["Post Metadata & Taken-At Resolver"]
-        CommentScraper["Dual-Path Comment Scraper (Embedded Edges + GraphQL Hash)"]
-    end
-
-    subgraph Pipeline3["5. Viral Hashtag Discovery & Pagination"]
-        TagCleaner["URL & Hashtag Normalizer"]
-        SectionParser["Explore Layout Parser (Clips, Grid, Fill)"]
-        ReelValidator["is_authentic_reel Strict Video Validator"]
-        CursorLoop["Multi-Page next_max_id Cursor Pagination"]
-        Ranker["Engagement Ranker (Top Liked & Viewed 50)"]
-    end
-
-    subgraph Visualizers["6. Interactive Architecture Dashboards"]
-        ArchV1["Architecture v1: 3-Tier Canvas & SVG Pulse Lines (/architecture)"]
-        ArchV2["Architecture v2: Cyber Mesh HUD & Live Packet Telemetry (/architecture-v2)"]
-    end
-
-    %% Flow connections
-    UI -->|POST /process {url}| Router
-    UI -->|POST /hashtag {tag, limit}| Router
-    Router --> Dispatcher
-    Dispatcher --> Store
-    Dispatcher -->|Worker Thread 1| YTDL
-    Dispatcher -->|Worker Thread 1| SessionMgr
-    Dispatcher -->|Worker Thread 2| TagCleaner
-
-    YTDL --> FFmpeg --> AudioBuffer --> WhisperInfer
-    WhisperDaemon -.->|Preloaded Weights| WhisperInfer
-    SessionMgr --> PostDetails --> CommentScraper
-
-    TagCleaner --> SectionParser --> CursorLoop --> ReelValidator --> Ranker
-
-    WhisperInfer -->|Transcript & Timestamps| Store
-    CommentScraper -->|Comments & Likes| Store
-    Ranker -->|Top 50 Reels Payload| Store
-
-    Store -.->|HTTP GET 2000ms Poll| Poll
-    Poll --> UI
-    UI -->|Trigger Download| Exporter
-    Exporter -.-> Router
-```
+ReelScribe operates on a fully decoupled, non-blocking asynchronous architecture. Heavy computational and network workloads (GPU neural inference, in-memory audio extraction, multi-page hashtag scraping) run in dedicated background worker threads, maintaining sub-15ms HTTP gateway responsiveness and continuous real-time UI polling updates.
 
 ### ⚙️ Core Operational Subsystems
 
@@ -114,6 +48,23 @@ flowchart TD
 | **Instagram GraphQL Engine** | `utils/comments.py` | `instaloader`, Web GraphQL Hash `97b41c...` | Hot-reloading session authentication, post creation timestamp extraction, edge traversal, verified badge & URL detection. |
 | **Viral Hashtag Explorer** | `utils/hashtag.py` | Instagram Web Info API, regex | Multi-page `next_max_id` pagination loop, `is_authentic_reel` video validation (excludes static photos/carousels), engagement ranker. |
 | **Architecture Dashboards** | `architecture/`<br>`architecture_v2/` | Dynamic SVG, CSS keyframe glow, Web Telemetry | Standalone & embedded interactive visualizers featuring continuous packet flow animations, live telemetry, and substructure code inspectors. |
+
+### 🔄 End-to-End Pipeline Workflows
+
+1. **Reel Transcription Flow:**
+   - **Submission:** Client submits an Instagram Reel URL via `POST /process`.
+   - **Task Dispatch:** Gateway validates the input, generates a unique UUIDv4 task token, registers `status: queued`, and dispatches an asynchronous background worker thread.
+   - **Audio Stream Pipe:** `yt-dlp` extracts the signed audio stream URL, which is piped directly through `imageio-ffmpeg` stdout into memory as a 16kHz Float32 mono PCM buffer (zero disk I/O).
+   - **AI Speech-to-Text:** The preloaded Whisper model processes the in-memory audio tensor using CUDA FP16 tensor acceleration (or CPU fallback), generating full text and timestamped segments.
+   - **Comment & Metadata Scraping:** In parallel, Instaloader resolves post creation timestamp (`taken_at`), owner handle, likes, and queries Instagram's GraphQL endpoint for comments, links, and replies.
+   - **Result Polling & Export:** The client polls `GET /result/<task_id>` every 2 seconds until completion, rendering the transcript, post info, and comment cards with instant `.txt`, `.srt`, and `.pdf` export options.
+
+2. **Viral Hashtag Discovery Flow:**
+   - **Submission:** Client enters a hashtag query (e.g., `#coding`) and target limit via `POST /hashtag`.
+   - **Explore Traversal:** Scraper queries Instagram's tag endpoint across multiple layout sections (`clips`, `one_by_two_left`, `fill`).
+   - **Cursor Pagination Loop:** Follows `next_max_id` pagination tokens across multiple batches until the target reel quota is reached.
+   - **Strict Video Validation:** `is_authentic_reel` filters out static photos and photo carousels, ensuring only genuine playable video reels are collected.
+   - **Engagement Ranking:** Sorts and returns the top 50 reels grouped into **Top Liked** and **Top Viewed**, complete with direct video links and post creation time badges.
 
 ---
 

@@ -24,6 +24,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Reset UI
         resultsSection.classList.add("hidden");
+        const reelInfoBanner = document.getElementById("reelInfoBanner");
+        if (reelInfoBanner) reelInfoBanner.classList.add("hidden");
         transcriptBox.innerHTML = "";
         commentsBox.innerHTML = "";
         
@@ -112,6 +114,43 @@ document.addEventListener("DOMContentLoaded", () => {
     function displayResults(data) {
         resultsSection.classList.remove("hidden");
         
+        // Populate Reel Post Details Banner if present
+        const reelInfoBanner = document.getElementById("reelInfoBanner");
+        if (reelInfoBanner && data.post_info) {
+            const info = data.post_info;
+            const authorEl = document.getElementById("reelAuthorLink");
+            const postTimeEl = document.getElementById("reelPostTime");
+            const captionEl = document.getElementById("reelCaptionPreview");
+            const likesBadge = document.getElementById("reelLikesBadge");
+            const commentsBadge = document.getElementById("reelCommentsBadge");
+            const extLink = document.getElementById("reelExternalLink");
+
+            if (authorEl) {
+                authorEl.textContent = `@${info.owner || 'creator'}`;
+                authorEl.href = `https://www.instagram.com/${encodeURIComponent(info.owner)}/`;
+            }
+            if (postTimeEl) {
+                postTimeEl.textContent = `🕒 ${info.time_ago || 'Recently'}`;
+                postTimeEl.title = info.post_date ? `Posted: ${info.post_date}` : '';
+            }
+            if (captionEl) {
+                captionEl.textContent = info.caption || 'No caption provided';
+                captionEl.title = info.caption || '';
+            }
+            if (likesBadge) {
+                likesBadge.textContent = `❤️ ${formatNumber(info.likes)} likes`;
+            }
+            if (commentsBadge) {
+                commentsBadge.textContent = `💬 ${formatNumber(info.comments_count)} comments`;
+            }
+            if (extLink) {
+                extLink.href = info.url || `https://www.instagram.com/reel/${info.shortcode}/`;
+            }
+            reelInfoBanner.classList.remove("hidden");
+        } else if (reelInfoBanner) {
+            reelInfoBanner.classList.add("hidden");
+        }
+
         // Simple assignment for transcript
         transcriptBox.textContent = data.transcript;
         
@@ -381,12 +420,14 @@ document.addEventListener("DOMContentLoaded", () => {
             const formattedViews = formatNumber(reel.views);
             const durationStr = formatDuration(reel.duration);
             const captionEscaped = escapeHtml(reel.caption || "");
+            const postTimeAgo = reel.time_ago || "";
+            const postDateFull = reel.post_date || "";
 
             card.innerHTML = `
                 <!-- Thumbnail & Badges -->
                 <div class="relative w-full aspect-[9/12] bg-gray-800 overflow-hidden group">
                     ${reel.thumbnail ? `
-                        <img src="${reel.thumbnail}" alt="@${escapeHtml(reel.owner)}" 
+                        <img src="${reel.thumbnail}" alt="@${escapeHtml(reel.owner)}" referrerpolicy="no-referrer"
                              class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
                              onerror="this.src='https://placehold.co/400x600/1f2937/9ca3af?text=Instagram+Reel';">
                     ` : `
@@ -398,15 +439,21 @@ document.addEventListener("DOMContentLoaded", () => {
                     <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none"></div>
 
                     <!-- Top Badges -->
-                    <div class="absolute top-3 left-3 flex items-center gap-1.5">
-                        <span class="bg-black/70 backdrop-blur-md text-white text-[11px] font-extrabold px-2.5 py-1 rounded-full border border-white/10 shadow-lg">
+                    <div class="absolute top-3 left-3 flex items-center gap-1.5 flex-wrap">
+                        <span class="bg-black/75 backdrop-blur-md text-white text-[11px] font-extrabold px-2.5 py-1 rounded-full border border-white/10 shadow-lg">
                             #${index + 1}
                         </span>
+                        ${postTimeAgo ? `
+                            <span class="bg-purple-950/80 backdrop-blur-md text-purple-200 text-[11px] font-medium px-2 py-0.5 rounded-md border border-purple-400/25 shadow-md"
+                                  title="${escapeHtml(postDateFull ? `Posted on ${postDateFull}` : postTimeAgo)}">
+                                🕒 ${escapeHtml(postTimeAgo)}
+                            </span>
+                        ` : ''}
                     </div>
 
                     ${durationStr ? `
                         <div class="absolute top-3 right-3">
-                            <span class="bg-black/70 backdrop-blur-md text-gray-300 text-xs font-semibold px-2 py-0.5 rounded-md border border-white/10">
+                            <span class="bg-black/75 backdrop-blur-md text-gray-300 text-xs font-semibold px-2 py-0.5 rounded-md border border-white/10">
                                 ⏱️ ${durationStr}
                             </span>
                         </div>
@@ -426,12 +473,18 @@ document.addEventListener("DOMContentLoaded", () => {
                 <!-- Card Content -->
                 <div class="p-4 flex flex-col flex-1 justify-between gap-3">
                     <div>
-                        <!-- Author -->
-                        <div class="flex items-center justify-between mb-2">
-                            <a href="https://www.instagram.com/${escapeHtml(reel.owner)}/" target="_blank" rel="noopener noreferrer" 
-                               class="text-pink-400 hover:text-pink-300 font-bold text-sm truncate max-w-[200px] flex items-center gap-1">
+                        <!-- Author & Post Time -->
+                        <div class="flex items-center justify-between gap-2 mb-2">
+                            <a href="https://www.instagram.com/${escapeHtml(reel.owner)}/" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer"
+                               class="text-pink-400 hover:text-pink-300 font-bold text-sm truncate max-w-[170px] flex items-center gap-1">
                                 <span>@${escapeHtml(reel.owner)}</span>
                             </a>
+                            ${postTimeAgo ? `
+                                <span class="text-[11px] text-gray-400 flex items-center gap-1 bg-white/5 px-2 py-0.5 rounded border border-white/5 flex-shrink-0 cursor-default" 
+                                      title="${escapeHtml(postDateFull ? `Posted on ${postDateFull}` : postTimeAgo)}">
+                                    <span>📅</span> ${escapeHtml(postTimeAgo)}
+                                </span>
+                            ` : ''}
                         </div>
 
                         <!-- Post Description / Caption -->
@@ -444,17 +497,17 @@ document.addEventListener("DOMContentLoaded", () => {
                     <div class="pt-3 border-t border-white/5 flex flex-col gap-2">
                         <div class="grid grid-cols-2 gap-2">
                             ${reel.video_url ? `
-                                <a href="${reel.video_url}" target="_blank" rel="noopener noreferrer" 
+                                <a href="${reel.video_url}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer"
                                    class="bg-pink-500/10 hover:bg-pink-500/20 text-pink-300 border border-pink-500/30 hover:border-pink-500/50 text-[11px] font-semibold py-2 px-2.5 rounded-lg text-center transition-all flex items-center justify-center gap-1">
                                     <span>🎬</span> Direct Video
                                 </a>
                             ` : `
-                                <a href="${reel.reel_url}" target="_blank" rel="noopener noreferrer" 
+                                <a href="${reel.reel_url}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer"
                                    class="bg-pink-500/10 hover:bg-pink-500/20 text-pink-300 border border-pink-500/30 text-[11px] font-semibold py-2 px-2.5 rounded-lg text-center transition-all flex items-center justify-center gap-1">
                                     <span>🎬</span> Watch Reel
                                 </a>
                             `}
-                            <a href="${reel.reel_url}" target="_blank" rel="noopener noreferrer" 
+                            <a href="${reel.reel_url}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer"
                                class="bg-white/5 hover:bg-white/10 text-gray-200 border border-white/10 text-[11px] font-semibold py-2 px-2.5 rounded-lg text-center transition-all flex items-center justify-center gap-1">
                                 <span>↗️</span> Instagram
                             </a>

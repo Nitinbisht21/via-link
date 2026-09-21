@@ -6,10 +6,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from flask import Flask, request, jsonify, render_template, send_file
+from flask import Flask, request, jsonify, render_template, send_file, send_from_directory
 from utils.downloader import get_audio_from_url
 from utils.transcriber import transcribe_audio, generate_srt, get_model
-from utils.comments import get_top_comments
+from utils.comments import get_top_comments, get_post_details
 from utils.hashtag import get_top_reels_by_hashtag
 from fpdf import FPDF
 
@@ -26,6 +26,7 @@ def process_reel(url, task_id):
     transcript = ""
     segments = []
     comments = []
+    post_info = None
     error_msgs = []
     
     # 1. Audio & Transcription
@@ -44,10 +45,11 @@ def process_reel(url, task_id):
         print(f"[{task_id[:8]}] Audio/Transcription error: {e}")
         error_msgs.append(f"Transcription error: {e}")
         
-    # 2. Comments
+    # 2. Comments & Post Info
     try:
-        results[task_id] = {"status": "processing", "message": "Fetching comments..."}
-        print(f"[{task_id[:8]}] Fetching comments...")
+        results[task_id] = {"status": "processing", "message": "Fetching reel metadata & comments..."}
+        print(f"[{task_id[:8]}] Fetching reel metadata and comments...")
+        post_info = get_post_details(url)
         comments = get_top_comments(url)
         print(f"[{task_id[:8]}] Comment fetching finished ({len(comments)} comments).")
     except Exception as e:
@@ -64,7 +66,8 @@ def process_reel(url, task_id):
             "status": "completed",
             "transcript": transcript or "No speech detected in audio.",
             "segments": segments,
-            "comments": comments
+            "comments": comments,
+            "post_info": post_info
         }
 
 def process_hashtag(tag, task_id, limit=50):
@@ -81,6 +84,36 @@ def process_hashtag(tag, task_id, limit=50):
 @app.route("/")
 def index():
     return render_template("index.html")
+
+@app.route("/architecture")
+@app.route("/architecture/")
+def architecture_dashboard():
+    arch_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "architecture")
+    if os.path.exists(os.path.join(arch_dir, "index.html")):
+        return send_file(os.path.join(arch_dir, "index.html"))
+    return "Architecture visualizer is hosted at https://github.com/Nitinbisht21/flow", 404
+
+@app.route("/architecture/<path:filename>")
+def architecture_assets(filename):
+    arch_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "architecture")
+    if os.path.exists(os.path.join(arch_dir, filename)):
+        return send_from_directory(arch_dir, filename)
+    return "Not found", 404
+
+@app.route("/architecture-v2")
+@app.route("/architecture-v2/")
+def architecture_v2_dashboard():
+    arch_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "architecture_v2")
+    if os.path.exists(os.path.join(arch_dir, "index.html")):
+        return send_file(os.path.join(arch_dir, "index.html"))
+    return "Architecture visualizer v2 is hosted at https://github.com/Nitinbisht21/flow", 404
+
+@app.route("/architecture-v2/<path:filename>")
+def architecture_v2_assets(filename):
+    arch_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "architecture_v2")
+    if os.path.exists(os.path.join(arch_dir, filename)):
+        return send_from_directory(arch_dir, filename)
+    return "Not found", 404
 
 @app.route("/process", methods=["POST"])
 def process():

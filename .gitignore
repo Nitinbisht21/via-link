@@ -39,3 +39,7 @@ Desktop.ini
 
 # Logs
 *.log
+
+# Architecture Visualizers (hosted separately in flow repository)
+architecture/
+architecture_v2/

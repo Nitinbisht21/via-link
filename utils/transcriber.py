@@ -24,7 +24,7 @@ def get_model():
 
 def transcribe_audio(audio_np):
     model = get_model()
-    # Transcribe the numpy array using FP16 to save VRAM on RTX 4050
+    # Transcribe the numpy array using FP16 to optimize VRAM on CUDA GPUs
     result = model.transcribe(audio_np, fp16=torch.cuda.is_available())
     if torch.cuda.is_available():
         torch.cuda.empty_cache()

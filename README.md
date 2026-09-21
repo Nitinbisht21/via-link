@@ -8,7 +8,7 @@
 
 - ⚡ **GPU-Accelerated Speech-to-Text:**
   - Powered by OpenAI's Whisper (`medium` model with FP16 precision).
-  - Optimized for consumer GPUs (like NVIDIA GeForce RTX 4050 Laptop GPU / 6GB VRAM) with automatic VRAM caching management to prevent Out-Of-Memory (OOM) errors.
+  - Optimized for modern NVIDIA GPUs with automatic VRAM caching management to prevent Out-Of-Memory (OOM) errors.
   - Automatic fallback to CPU if CUDA is unavailable.
 - 💬 **Live Instagram Comment Scraping:**
   - Scrapes top-ranked comments directly from Instagram via authenticated Web GraphQL queries.
@@ -33,12 +33,14 @@
 
 ---
 
-## 🛠️ Architecture & How It Works
+## 🛠️ System Architecture & Workflow
 
-```
+ReelScribe operates on a fully decoupled, non-blocking asynchronous architecture. Heavy computational and network workloads (GPU neural inference, in-memory audio extraction, multi-page hashtag scraping) run in dedicated background worker threads, maintaining sub-15ms HTTP gateway responsiveness and continuous real-time UI polling updates.
+
+```text
 ┌─────────────────┐       POST /process (Reel URL)        ┌─────────────────┐
 │                 │ ────────────────────────────────────> │                 │
-│  Web Browser    │                                       │   Flask Server  │
+│  Web Browser    │      POST /hashtag (#tag Query)       │   Flask Server  │
 │  (Tailwind UI)  │ <──────────────────────────────────── │    (app.py)     │
 │                 │       Returns task_id (Async)         └────────┬────────┘
 └────────┬────────┘                                                │
@@ -48,21 +50,46 @@
 │ Render Results: │                                       │ Background Task │
 │ • Transcript    │                                       └────────┬────────┘
 │ • Likes & Badges│                                                │
-│ • SRT/PDF/TXT   │                                 ┌──────────────┴──────────────┐
-└─────────────────┘                                 ▼                             ▼
-                                           ┌─────────────────┐           ┌─────────────────┐
-                                           │  Audio Pipeline │           │ Comment Pipeline│
-                                           │ (yt-dlp + ffmpeg│           │ (Instaloader +  │
-                                           │  + GPU Whisper) │           │ Web GraphQL)    │
-                                           └─────────────────┘           └─────────────────┘
+│ • SRT/PDF/TXT   │                                                │
+│ • Top 50 Reels  │                                                │
+└─────────────────┘                                                │
+         ┌─────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────┐
+         ▼                                                         ▼                                                         ▼
+┌─────────────────┐                                       ┌─────────────────┐                                       ┌─────────────────┐
+│  Audio Pipeline │                                       │ Comment Pipeline│                                       │ Hashtag Pipeline│
+│ (yt-dlp + ffmpeg│                                       │ (Instaloader +  │                                       │ (Top 50 Reels + │
+│  + GPU Whisper) │                                       │  Web GraphQL)   │                                       │  is_authentic)  │
+└─────────────────┘                                       └─────────────────┘                                       └─────────────────┘
 ```
 
-1. **Submission:** User pastes an Instagram Reel URL on the web interface.
-2. **Worker Thread:** A background worker is spawned with a unique `task_id`.
-3. **Audio Extraction:** `yt-dlp` extracts the direct audio stream, resampled to 16kHz mono via FFmpeg in memory.
-4. **Whisper Transcription:** Transcribes speech into text and segmented timestamp chunks on the GPU.
-5. **Comment Scraping:** Queries Instagram's web GraphQL API using authenticated session cookies to extract top comments, like counts, and links.
-6. **Async UI Updates:** The frontend polls `/result/<task_id>` every 2 seconds, displaying progress spinners and rendering cards immediately upon completion.
+### ⚙️ Core Operational Subsystems
+
+| Subsystem | Primary Modules | Key Technologies & Protocols | Architectural Role |
+| :--- | :--- | :--- | :--- |
+| **Client Interaction** | `templates/index.html`<br>`static/main.js` | HTML5, Vanilla JS, CSS Glassmorphism | Dual-tab reactive UI, non-blocking 2s polling heartbeat, `<meta name="referrer" content="no-referrer">` CDN hotlink protection. |
+| **Gateway & Dispatcher** | `app.py` | Flask 3.0, `threading`, `uuid`, `io.BytesIO` | Validates payloads, allocates UUIDv4 task tokens, dispatches background threads, streams documents directly from RAM. |
+| **In-Memory Audio Pipe** | `utils/downloader.py` | `yt-dlp`, `imageio-ffmpeg`, `numpy` | Streams signed media URLs, pipes raw audio through FFmpeg stdout directly into 16kHz Float32 PCM RAM arrays without disk I/O. |
+| **Neural Speech-to-Text** | `utils/transcriber.py` | OpenAI Whisper, PyTorch (CUDA / CPU) | Daemonized background preloader eliminates cold starts; executes FP16 neural inference on GPU tensor cores with CPU fallback. |
+| **Instagram GraphQL Engine** | `utils/comments.py` | `instaloader`, Web GraphQL Hash `97b41c...` | Hot-reloading session authentication, post creation timestamp extraction, edge traversal, verified badge & URL detection. |
+| **Viral Hashtag Explorer** | `utils/hashtag.py` | Instagram Web Info API, regex | Multi-page `next_max_id` pagination loop, `is_authentic_reel` video validation (excludes static photos/carousels), engagement ranker. |
+| **Architecture Dashboards** | `architecture/`<br>`architecture_v2/` | Dynamic SVG, CSS keyframe glow, Web Telemetry | Standalone & embedded interactive visualizers featuring continuous packet flow animations, live telemetry, and substructure code inspectors. |
+
+### 🔄 End-to-End Pipeline Workflows
+
+1. **Reel Transcription Flow:**
+   - **Submission:** Client submits an Instagram Reel URL via `POST /process`.
+   - **Task Dispatch:** Gateway validates the input, generates a unique UUIDv4 task token, registers `status: queued`, and dispatches an asynchronous background worker thread.
+   - **Audio Stream Pipe:** `yt-dlp` extracts the signed audio stream URL, which is piped directly through `imageio-ffmpeg` stdout into memory as a 16kHz Float32 mono PCM buffer (zero disk I/O).
+   - **AI Speech-to-Text:** The preloaded Whisper model processes the in-memory audio tensor using CUDA FP16 tensor acceleration (or CPU fallback), generating full text and timestamped segments.
+   - **Comment & Metadata Scraping:** In parallel, Instaloader resolves post creation timestamp (`taken_at`), owner handle, likes, and queries Instagram's GraphQL endpoint for comments, links, and replies.
+   - **Result Polling & Export:** The client polls `GET /result/<task_id>` every 2 seconds until completion, rendering the transcript, post info, and comment cards with instant `.txt`, `.srt`, and `.pdf` export options.
+
+2. **Viral Hashtag Discovery Flow:**
+   - **Submission:** Client enters a hashtag query (e.g., `#coding`) and target limit via `POST /hashtag`.
+   - **Explore Traversal:** Scraper queries Instagram's tag endpoint across multiple layout sections (`clips`, `one_by_two_left`, `fill`).
+   - **Cursor Pagination Loop:** Follows `next_max_id` pagination tokens across multiple batches until the target reel quota is reached.
+   - **Strict Video Validation:** `is_authentic_reel` filters out static photos and photo carousels, ensuring only genuine playable video reels are collected.
+   - **Engagement Ranking:** Sorts and returns the top 50 reels grouped into **Top Liked** and **Top Viewed**, complete with direct video links and post creation time badges.
 
 ---
 
@@ -107,7 +134,7 @@ pip install -r requirements.txt
 ```
 
 #### Install PyTorch with CUDA Support (for NVIDIA GPU):
-If you have an NVIDIA GPU (e.g. RTX 3050, 4050, 4060, etc.):
+If you have a compatible NVIDIA GPU (CUDA 12.x):
 ```powershell
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
 ```
@@ -168,10 +195,10 @@ Instagram requires authentication to scrape comments and bypass anti-bot challen
 
 ```text
 via-link/
-├── app.py                   # Main Flask application and API routes
+├── app.py                   # Main Flask application, background workers & API routes
 ├── requirements.txt         # Python package dependencies
 ├── .env.example             # Example environment template
-├── .gitignore               # Ignored files (venv, .env, sessions, etc.)
+├── .gitignore               # Ignored files (venv, .env, architecture/, etc.)
 ├── README.md                # Documentation and setup instructions
 │
 ├── static/
@@ -179,7 +206,7 @@ via-link/
 │   └── style.css            # Glassmorphism styling, animations, and comment cards
 │
 ├── templates/
-│   └── index.html           # Main frontend web page
+│   └── index.html           # Main frontend web page (Reels, Hashtags & Architecture)
 │
 └── utils/
     ├── __init__.py
@@ -187,7 +214,6 @@ via-link/
     ├── transcriber.py       # Whisper GPU model loading, inference & SRT generator
     ├── comments.py          # Instagram GraphQL comment parser (likes, links, replies)
     └── hashtag.py           # Hashtag top/viewed reels scraper & direct link extractor
-
 ```
 
 ---
@@ -195,8 +221,8 @@ via-link/
 ## ❓ Troubleshooting
 
 ### 1. "CUDA out of memory" error
-- **Cause:** Whisper `large` model requires ~10GB of VRAM and will exceed 6GB GPUs.
-- **Fix:** ReelScribe uses the `medium` model configured with FP16 precision, fitting comfortably in ~3.5GB–4GB VRAM. If you have a GPU with ≤4GB VRAM, change `"medium"` to `"small"` or `"base"` in `utils/transcriber.py`.
+- **Cause:** Large Whisper model variants require significant VRAM and may exceed available GPU memory on systems with limited video RAM.
+- **Fix:** ReelScribe defaults to the `medium` model configured with FP16 precision, balancing high transcription accuracy with efficient VRAM consumption (~3.5GB–4GB). If running on a GPU with limited VRAM, change `"medium"` to `"small"` or `"base"` in `utils/transcriber.py`. If no compatible CUDA device is detected, the application automatically runs on CPU.
 
 ### 2. "Login required" or 0 comments fetched
 - **Cause:** Instagram flagged password-based login or your `sessionid` expired.

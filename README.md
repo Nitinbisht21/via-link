@@ -37,6 +37,82 @@
 
 ReelScribe operates on a fully decoupled, non-blocking asynchronous architecture. Heavy computational and network workloads (GPU neural inference, in-memory audio extraction, multi-page hashtag scraping) run in dedicated background worker threads, maintaining sub-15ms HTTP gateway responsiveness and continuous real-time UI polling updates.
 
+```text
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                               1. CLIENT PRESENTATION LAYER                              │
+│  ┌──────────────────────────────────────────┐    ┌──────────────────────────────────┐  │
+│  │   🎙️ Reel Transcriber (URL Input)        │    │   🏷️ Hashtag Explorer (#tag)      │  │
+│  └──────────────────────────────────────────┘    └──────────────────────────────────┘  │
+│       │ POST /process {url}                            │ POST /hashtag {tag, limit}     │
+│       ▼                                                ▼                                │
+│  ┌──────────────────────────────────────────────────────────────────────────────────┐  │
+│  │     Client Polling Heartbeat (GET /result/<task_id> every 2000ms)                │  │
+│  │     Document Exporters (io.BytesIO Streaming: .TXT | .SRT | .PDF)                │  │
+│  └──────────────────────────────────────────────────────────────────────────────────┘  │
+└───────────────────────────────────────────┬────────────────────────────────────────────┘
+                                            │ HTTP JSON Requests
+                                            ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                         2. APPLICATION GATEWAY & DISPATCHER                            │
+│  ┌──────────────────────────────────────────────────────────────────────────────────┐  │
+│  │  Flask 3.0 Web Gateway (app.py)                                                  │  │
+│  │  • Fast Input Validation & Parameter Sanitization                                │  │
+│  │  • UUIDv4 Asynchronous Task Token Generator                                      │  │
+│  │  • Thread-Safe Global State Repository (results[task_id])                        │  │
+│  └────────────────────────────────────────┬─────────────────────────────────────────┘  │
+└───────────────────────────────────────────┼────────────────────────────────────────────┘
+                                            │ Spawns Non-Blocking Background Threads
+                     ┌──────────────────────┴──────────────────────┐
+                     ▼                                             ▼
+┌───────────────────────────────────────────┐ ┌──────────────────────────────────────────┐
+│      3. REEL TRANSCRIPTION PIPELINE       │ │       4. HASHTAG DISCOVERY PIPELINE      │
+│ ┌───────────────────────────────────────┐ │ │ ┌──────────────────────────────────────┐ │
+│ │ In-Memory Audio Extraction Engine     │ │ │ │ Tag & Explore URL Normalizer         │ │
+│ │ • yt-dlp authenticated stream extract │ │ │ │ • Strips explore URLs, #, and spaces │ │
+│ │ • imageio-ffmpeg stdout pipe to RAM   │ │ │ └──────────────────┬───────────────────┘ │
+│ │ • Normalized Float32 16kHz PCM buffer │ │ │                    │                     │
+│ └──────────────────┬────────────────────┘ │ │                    ▼                     │
+│                    │ Raw Audio Tensor     │ │ ┌──────────────────────────────────────┐ │
+│                    ▼                      │ │ │ Section Layout Parser (Clips/Grid)   │ │
+│ ┌───────────────────────────────────────┐ │ │ │ • Crawls Instagram section payloads │ │
+│ │ Whisper AI Speech-to-Text Engine      │ │ │ └──────────────────┬───────────────────┘ │
+│ │ • Daemonized model preloader (RAM)    │ │ │                    │                     │
+│ │ • CUDA FP16 tensor core inference     │ │ │                    ▼                     │
+│ │ • Millisecond timestamp cue aligner   │ │ │ ┌──────────────────────────────────────┐ │
+│ └──────────────────┬────────────────────┘ │ │ │ Strict Video Validator               │ │
+│                    │                      │ │ │ • is_authentic_reel validates video  │ │
+│                    ▼                      │ │ │ • Rejects static photos & carousels  │ │
+│ ┌───────────────────────────────────────┐ │ │ └──────────────────┬───────────────────┘ │
+│ │ Instagram Metadata & Comments Engine  │ │ │                    │                     │
+│ │ • Resolves post creation timestamp    │ │ │                    ▼                     │
+│ │ • Dual-path comment extraction:       │ │ │ ┌──────────────────────────────────────┐ │
+│ │   - Embedded parent edges             │ │ │ │ Multi-Page Cursor Pagination         │ │
+│ │   - Web GraphQL Query Hash            │ │ │ │ • Loops next_max_id until 50 reels   │ │
+│ │ • Like counts, replies & URL parser   │ │ │ └──────────────────┬───────────────────┘ │
+│ └──────────────────┬────────────────────┘ │ │                    │                     │
+│                    │                      │ │                    ▼                     │
+│                    │                      │ │ ┌──────────────────────────────────────┐ │
+│                    │                      │ │ │ Engagement Ranker                    │ │
+│                    │                      │ │ │ • Top Liked (descending likes)       │ │
+│                    │                      │ │ │ • Top Viewed (descending plays)      │ │
+│                    │                      │ │ └──────────────────┬───────────────────┘ │
+│                    │                      │ │                    │                     │
+│                    ▼                      │ │                    ▼                     │
+│          results[task_id] = { ... }       │ │        results[task_id] = { ... }        │
+└────────────────────┬──────────────────────┘ └────────────────────┬─────────────────────┘
+                     │                                             │
+                     └──────────────────────┬──────────────────────┘
+                                            │ Completed Task Payload
+                                            ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                        5. REAL-TIME CLIENT RENDERING & EXPORTS                         │
+│  • Displays Synchronized Transcripts & Millisecond SubRip SRT Cues                     │
+│  • Renders Interactive Comment Feed with Likes, Verified Badges & Clickable Links      │
+│  • Builds Responsive 50-Reel Grid with Playable Video Links & Creation Timestamps      │
+│  • In-Memory Direct Downloads: .TXT (UTF-8), .SRT (SubRip), .PDF (Latin-1 Clean)       │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
 ### ⚙️ Core Operational Subsystems
 
 | Subsystem | Primary Modules | Key Technologies & Protocols | Architectural Role |

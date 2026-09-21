@@ -1,45 +1,13 @@
-# Secrets & Environment Variables
+# Environment secrets
 .env
-.env.*
-!.env.example
-*.env
 
-# Python Virtual Environment
+# Virtual environment
 venv/
-.venv/
-env/
 
-# Python Bytecode & Caches
+# Caches
 __pycache__/
-*.py[cod]
 .pytest_cache/
-.cache/
 
-# Downloaded Reels & Audio Media
-downloads/
-*.mp4
-*.mp3
-*.wav
-*.m4a
-
-# AI Model Caches (Whisper weights)
-*.pt
-*.pth
-
-# Instagram & Instaloader Session Files
-*.session
-session-*
-
-# Editor & OS Files
-.vscode/
-.idea/
-.DS_Store
-Thumbs.db
-Desktop.ini
-
-# Logs
-*.log
-
-# Architecture Visualizers (hosted separately in flow repository)
+# Standalone architecture visualizers
 architecture/
 architecture_v2/
